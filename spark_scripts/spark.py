@@ -9,7 +9,7 @@ from delta import *
 from pyspark.sql.session import SparkSession
 from datetime import datetime
 
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, BooleanType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.functions import from_json, unix_timestamp
 from pyspark.sql.functions import col, from_json
 
@@ -39,14 +39,15 @@ date = datetime.today()
 year = date.strftime("%y")
 month = date.strftime("%m")
 day = date.strftime("%d")
-hour = date.strftime("%h")
+hour = date.strftime("%H")
 
 # Read Source
 df = spark \
   .readStream \
   .format("kafka") \
   .option("kafka.bootstrap.servers", "b-1.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092,b-2.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092") \
-  .option("subscribe", "test") \
+  .option("subscribe", "demo") \
+  .option("startingOffsets", "earliest") \
   .load().select(col("value").cast("STRING"))
 
 df2 = df.select(from_json("value", schema).alias("json"))
