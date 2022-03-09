@@ -3,7 +3,7 @@ import json
 from kafka import KafkaProducer
 import time
 import random
-from stockproducer import StockProvider
+from orderproducer import OrderProvider
 from dotenv import load_dotenv
 import os
 
@@ -32,7 +32,7 @@ def produce_msgs(hostname = 'hostname',
         nr_messages = float('inf')
     i = 0
     
-    fake.add_provider(StockProvider)
+    fake.add_provider(OrderProvider)
     
     while i < nr_messages:
         message, key = fake.produce_msg()

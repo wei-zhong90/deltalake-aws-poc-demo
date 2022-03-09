@@ -10,7 +10,6 @@ from pyspark.sql.session import SparkSession
 from datetime import datetime
 
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-from pyspark.sql.functions import from_json, unix_timestamp
 from pyspark.sql.functions import col, from_json
 
 ## @params: [JOB_NAME]
@@ -50,7 +49,7 @@ df = spark \
   .option("startingOffsets", "earliest") \
   .load().select(col("value").cast("STRING"))
 
-df2 = df.select(from_json("value", schema).alias("json"))
+df2 = df.select(from_json("value", schema).alias("data"))
 
 # Write data as a DELTA TABLE
 df3 = df2.writeStream \
