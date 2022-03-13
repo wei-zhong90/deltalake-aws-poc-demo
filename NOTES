@@ -2,3 +2,8 @@
 
 * Deltalake does not support "s3a://" format
 * If the defined schema is incompatible with the data, the returned field will be null
+
+
+# Questions
+
+* How deltalake decides the shards and file sizes
