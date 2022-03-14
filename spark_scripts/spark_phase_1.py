@@ -9,7 +9,7 @@ from delta import *
 from pyspark.sql.session import SparkSession
 from datetime import datetime
 
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType
 from pyspark.sql.functions import col, from_json, lit
 
 ## @params: [JOB_NAME]
@@ -25,7 +25,7 @@ schema = StructType([ \
   StructField("order_id", IntegerType(), True), \
   StructField("order_owner", StringType(), True), \
   StructField("order_value", IntegerType(), True), \
-  StructField("timestamp", StringType(), True), ])
+  StructField("timestamp", TimestampType(), True), ])
 
 # Initialize Spark Session along with configs for Delta Lake
 # spark = SparkSession \
@@ -50,12 +50,13 @@ df = spark \
   .readStream \
   .format("kafka") \
   .option("kafka.bootstrap.servers", "b-1.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092,b-2.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092") \
-  .option("subscribe", "demo") \
+  .option("subscribe", "lego") \
   .option("startingOffsets", "earliest") \
   .option("maxOffsetsPerTrigger", 1000) \
   .load().select(col("value").cast("STRING"))
 
 df2 = df.select(from_json("value", schema).alias("data")).select("data.*")
+
 
 # Write data as a DELTA TABLE
 df3 = df2.writeStream \

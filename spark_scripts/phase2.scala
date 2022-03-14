@@ -5,11 +5,11 @@ import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.sql.{Dataset, Row, SaveMode, SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
-import org.apache.spark.sql.functions.from_json
 import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType, DoubleType, BooleanType, TimestampType}
 import org.apache.spark.sql.streaming.{StreamingQuery, Trigger}
 import scala.collection.JavaConverters._
 import io.delta.tables.DeltaTable
+import org.apache.spark.sql.expressions.Window
 
 import scala.collection.JavaConverters._
 
@@ -32,13 +32,19 @@ object GlueApp {
 
     val raw = sparkSession.readStream.format("delta").load("s3://delta-lake-lego-demo/raw")
     def upsertIntoDeltaTable(updatedDf: DataFrame, batchId: Long): Unit = {
-      Basetable.alias("b").merge(
-          updatedDf.alias("s"), 
-          "s.order_id = b.order_id")
-        .whenMatched.updateAll()
-        .whenNotMatched.insertAll()
-        .execute()
-      }
+        // val groupDf = updatedDf.withColumn("timestamp",col("timestamp").cast(IntegerType)).groupBy("order_id").max("timestamp")
+        // val processedDf = updatedDf.join(groupDf,groupDf("timestamp") ===  updatedDf("timestamp"),"leftsemi")
+        val w = Window.partitionBy($"order_id").orderBy($"timestamp".desc)
+        val Resultdf = updatedDf.withColumn("rownum", row_number.over(w)).where($"rownum" === 1).drop("rownum")
+        
+
+        Basetable.alias("b").merge(
+            Resultdf.alias("s"), 
+            "s.order_id = b.order_id")
+            .whenMatched.updateAll()
+            .whenNotMatched.insertAll()
+            .execute()
+    }
     
     val query = raw
       .writeStream
@@ -55,8 +61,7 @@ object GlueApp {
     // deltaTable.generate("symlink_format_manifest")
     
     Job.commit()
-    
-    
+
   } 
 
 }

@@ -17,22 +17,31 @@ job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
 
-schema = StructType([ \
-  StructField("order_id", IntegerType(), True), \
-  StructField("order_owner", StringType(), True), \
-  StructField("order_value", IntegerType(), True), \
-  StructField("timestamp", StringType(), True), \
-  StructField("year", StringType(), True), \
-  StructField("month", StringType(), True), \
-  StructField("day", StringType(), True), \
-  StructField("hour", StringType(), True) \
-  ])
+# deltaTable = DeltaTable.forPath(spark, "s3://delta-lake-lego-demo/processed/")
+# deltaTable.generate("symlink_format_manifest")
 
-rdd = spark.sparkContext.emptyRDD()
+df = spark.read.format("delta").load("s3://delta-lake-lego-demo/processed/")
 
-df = spark.createDataFrame(rdd,schema)
+df2 = df.createOrReplaceTempView("generated_loads")
 
-df.write.partitionBy("year", "month", "day", "hour").format("delta").mode("overwrite").save("s3://delta-lake-lego-demo/processed/")
+spark.sql("select * from generated_loads").show(df.count(), False)
+
+# schema = StructType([ \
+#   StructField("order_id", IntegerType(), True), \
+#   StructField("order_owner", StringType(), True), \
+#   StructField("order_value", IntegerType(), True), \
+#   StructField("timestamp", StringType(), True), \
+#   StructField("year", StringType(), True), \
+#   StructField("month", StringType(), True), \
+#   StructField("day", StringType(), True), \
+#   StructField("hour", StringType(), True) \
+#   ])
+
+# rdd = spark.sparkContext.emptyRDD()
+
+# df = spark.createDataFrame(rdd,schema)
+
+# df.write.partitionBy("year", "month", "day", "hour").format("delta").mode("overwrite").save("s3://delta-lake-lego-demo/processed/")
 
 # df = spark.sql("""CREATE TABLE default.processed (
 # order_id INT,
