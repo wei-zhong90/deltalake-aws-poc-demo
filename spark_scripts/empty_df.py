@@ -20,6 +20,8 @@ job.init(args['JOB_NAME'], args)
 # deltaTable = DeltaTable.forPath(spark, "s3://delta-lake-lego-demo/processed/")
 # deltaTable.generate("symlink_format_manifest")
 
+spark.conf.set("delta.compatibility.symlinkFormatManifest.enabled", "true")
+
 df = spark.read.format("delta").load("s3://delta-lake-lego-demo/processed/")
 
 df2 = df.createOrReplaceTempView("generated_loads")

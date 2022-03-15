@@ -7,3 +7,7 @@
 # Questions
 
 * How deltalake decides the shards and file sizes
+
+# Findings
+
+* By putting raw data as the first stage for glue job, it allows concurrent writes (append only) which offer benefits of concurrencies
