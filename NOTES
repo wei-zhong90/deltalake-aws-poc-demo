@@ -2,6 +2,7 @@
 
 * Deltalake does not support "s3a://" format
 * If the defined schema is incompatible with the data, the returned field will be null
+* To stay performant, Delta tables need to undergo periodic compaction processes that take many small parquet files and combine them into fewer, larger files (optimally ~1GB, but at least 128MB in size). Delta Engine, Databricks’ proprietary version, supports Auto-Compaction where this process is triggered automatically, as well as other behind-the-scenes write optimizations.
 
 
 # Questions
@@ -11,3 +12,8 @@
 # Findings
 
 * By putting raw data as the first stage for glue job, it allows concurrent writes (append only) which offer benefits of concurrencies
+
+# Comparison (Hudi vs Deltalake vs Iceburg)
+
+* https://lakefs.io/hudi-iceberg-and-delta-lake-data-lake-table-formats-compared/
+
