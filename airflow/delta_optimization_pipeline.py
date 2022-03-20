@@ -37,7 +37,7 @@ job_parameter = ["job-stage2", "job-create-processed-base-table"]
 
 default_args = {
     'owner': 'me',
-    'start_date': datetime(2021, 4, 1),   
+    'start_date': datetime(2022, 3, 20),   
     'retries': 2
 }
 
