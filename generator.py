@@ -23,7 +23,7 @@ def produce_msgs(hostname = 'hostname',
                  max_waiting_time_in_sec = 5):
     producer = KafkaProducer(
         bootstrap_servers=hostname + ':' + port,
-        security_protocol='PLAINTEXT',
+        security_protocol='SSL',
         value_serializer=lambda v: json.dumps(v).encode('ascii'),
         key_serializer=lambda v: json.dumps(v).encode('ascii')
     )

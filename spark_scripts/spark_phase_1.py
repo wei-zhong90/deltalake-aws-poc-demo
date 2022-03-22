@@ -21,6 +21,10 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
+
+data_bucket = "s3://deltalake-poc-glue-wei"
+bootstrap_servers = "b-1.streaming-data-so.ehfjpu.c4.kafka.ap-northeast-1.amazonaws.com:9098,b-2.streaming-data-so.ehfjpu.c4.kafka.ap-northeast-1.amazonaws.com:9098"
+topic = "lego"
 schema = StructType([ \
   StructField("order_id", IntegerType(), True), \
   StructField("order_owner", StringType(), True), \
@@ -42,17 +46,25 @@ def insertToDelta(microBatch, batchId):
   hour = date.strftime("%H")
   if microBatch.count() > 0:
     df = microBatch.withColumn("year", lit(year)).withColumn("month", lit(month)).withColumn("day", lit(day)).withColumn("hour", lit(hour))
-    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save("s3://delta-lake-lego-demo/raw/")
+    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save(f"{data_bucket}/raw/")
     
+
+options = {
+    "kafka.bootstrap.servers": bootstrap_servers,
+    "subscribe": topic,
+    "kafka.security.protocol": "SASL_SSL",
+    "kafka.sasl.mechanism": "AWS_MSK_IAM", 
+    "kafka.sasl.jaas.config": "software.amazon.msk.auth.iam.IAMLoginModule required;",
+    "kafka.sasl.client.callback.handler.class": "software.amazon.msk.auth.iam.IAMClientCallbackHandler",
+    "startingOffsets": "earliest",
+    "maxOffsetsPerTrigger": 1000
+    }
 
 # Read Source
 df = spark \
   .readStream \
   .format("kafka") \
-  .option("kafka.bootstrap.servers", "b-1.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092,b-2.test-cluster.dtvzzv.c4.kafka.cn-north-1.amazonaws.com.cn:9092") \
-  .option("subscribe", "lego") \
-  .option("startingOffsets", "earliest") \
-  .option("maxOffsetsPerTrigger", 1000) \
+  .options(**options) \
   .load().select(col("value").cast("STRING"))
 
 df2 = df.select(from_json("value", schema).alias("data")).select("data.*")
@@ -61,7 +73,7 @@ df2 = df.select(from_json("value", schema).alias("data")).select("data.*")
 # Write data as a DELTA TABLE
 df3 = df2.writeStream \
   .foreachBatch(insertToDelta) \
-  .option("checkpointLocation", "s3://delta-lake-lego-demo/checkpoint/") \
+  .option("checkpointLocation", f"{data_bucket}/checkpoint/") \
   .trigger(processingTime="60 seconds") \
   .start()
 
