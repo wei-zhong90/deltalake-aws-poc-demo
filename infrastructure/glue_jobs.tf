@@ -82,7 +82,7 @@ resource "aws_glue_job" "phase_2" {
   }
 }
 
-data "aws_iam_policy_document" "resource_full_access" {
+data "aws_iam_policy_document" "s3_full_access" {
   statement {
     sid    = "FullAccess"
     effect = "Allow"
@@ -95,6 +95,20 @@ data "aws_iam_policy_document" "resource_full_access" {
 
     actions = [
       "s3:*"
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "kafka_full_access" {
+  statement {
+    sid    = "KafkaFullAccess"
+    effect = "Allow"
+    resources = [
+      module.kafka.cluster_arn
+    ]
+
+    actions = [
+      "kafka-cluster:*"
     ]
   }
 }
@@ -116,7 +130,8 @@ module "glue_role" {
   }
 
   policy_documents = [
-    data.aws_iam_policy_document.resource_full_access.json
+    data.aws_iam_policy_document.s3_full_access.json,
+    data.aws_iam_policy_document.kafka_full_access.json
   ]
 }
 
