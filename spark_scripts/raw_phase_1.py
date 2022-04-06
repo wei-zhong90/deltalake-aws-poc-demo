@@ -13,7 +13,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 from pyspark.sql.functions import col, from_json, lit
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'bucket_name', 'bootstrap_servers', 'topic'])
 
 sc = SparkContext()
 glueContext = GlueContext(sc)
@@ -22,9 +22,9 @@ job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
 
-data_bucket = "s3://deltalake-poc-glue-wei"
-bootstrap_servers = "b-1.streaming-data-so.ehfjpu.c4.kafka.ap-northeast-1.amazonaws.com:9098,b-2.streaming-data-so.ehfjpu.c4.kafka.ap-northeast-1.amazonaws.com:9098"
-topic = "lego"
+data_bucket = args['bucket_name']
+bootstrap_servers = args['bootstrap_servers']
+topic = args['topic']
 schema = StructType([ \
   StructField("order_id", IntegerType(), True), \
   StructField("order_owner", StringType(), True), \
@@ -46,7 +46,7 @@ def insertToDelta(microBatch, batchId):
   hour = date.strftime("%H")
   if microBatch.count() > 0:
     df = microBatch.withColumn("year", lit(year)).withColumn("month", lit(month)).withColumn("day", lit(day)).withColumn("hour", lit(hour))
-    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save(f"{data_bucket}/raw/")
+    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save(f"s3://{data_bucket}/raw/")
     
 
 options = {
@@ -73,7 +73,7 @@ df2 = df.select(from_json("value", schema).alias("data")).select("data.*")
 # Write data as a DELTA TABLE
 df3 = df2.writeStream \
   .foreachBatch(insertToDelta) \
-  .option("checkpointLocation", f"{data_bucket}/checkpoint/") \
+  .option("checkpointLocation", f"s3://{data_bucket}/checkpoint/") \
   .trigger(processingTime="60 seconds") \
   .start()
 

@@ -23,14 +23,14 @@ object GlueApp {
     val sparkSession: SparkSession = glueContext.getSparkSession
     import sparkSession.implicits._
     // @params: [JOB_NAME]
-    val args = GlueArgParser.getResolvedOptions(sysArgs, Seq("JOB_NAME").toArray)
+    val args = GlueArgParser.getResolvedOptions(sysArgs, Seq("JOB_NAME", "bucket_name").toArray)
     Job.init(args("JOB_NAME"), glueContext, args.asJava)
     
-    val BasePath = "s3://delta-lake-lego-demo/processed"
+    val BasePath = s"s3://${args("bucket_name")}/processed"
     val Basetable = DeltaTable.forPath(sparkSession, BasePath)
-    val CheckpointDir = "s3://delta-lake-lego-demo/checkpoint2"
+    val CheckpointDir = s"s3://${args("bucket_name")}/checkpoint2"
 
-    val raw = sparkSession.readStream.format("delta").load("s3://delta-lake-lego-demo/raw")
+    val raw = sparkSession.readStream.format("delta").load(s"s3://${args("bucket_name")}/raw")
     def upsertIntoDeltaTable(updatedDf: DataFrame, batchId: Long): Unit = {
         // val groupDf = updatedDf.withColumn("timestamp",col("timestamp").cast(IntegerType)).groupBy("order_id").max("timestamp")
         // val processedDf = updatedDf.join(groupDf,groupDf("timestamp") ===  updatedDf("timestamp"),"leftsemi")
@@ -53,11 +53,11 @@ object GlueApp {
       .option("checkpointLocation", CheckpointDir)
       .trigger(Trigger.Once())
       .outputMode("update")
-      .start("s3://delta-lake-lego-demo/processed")
+      .start(BasePath)
 
     query.awaitTermination()   
     
-    // deltaTable = DeltaTable.forPath(spark, "s3://delta-lake-lego-demo/processed/")
+    // deltaTable = DeltaTable.forPath(spark, "s3://deltalake-poc-glue-wei/processed/")
     // deltaTable.generate("symlink_format_manifest")
     
     Job.commit()
