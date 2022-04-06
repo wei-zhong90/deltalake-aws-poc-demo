@@ -45,10 +45,14 @@ resource "aws_glue_connection" "kafka" {
   name = "kafka-connect"
 
   physical_connection_requirements {
-    availability_zone      = data.aws_availability_zones.available.names[0]
+    availability_zone      = data.aws_subnet.selected.availability_zone
     security_group_id_list = var.create_new_vpc ? [aws_default_security_group.default[0].id] : var.security_group_ids
     subnet_id              = var.create_new_vpc ? module.application_subnets.private_subnet_ids[0] : var.subnet_ids[0]
   }
+}
+
+data "aws_subnet" "selected" {
+  id = var.create_new_vpc ? module.application_subnets.private_subnet_ids[0] : var.subnet_ids[0]
 }
 
 resource "aws_glue_job" "phase_2" {
@@ -101,14 +105,55 @@ data "aws_iam_policy_document" "s3_full_access" {
 
 data "aws_iam_policy_document" "kafka_full_access" {
   statement {
-    sid    = "KafkaFullAccess"
     effect = "Allow"
     resources = [
       module.kafka.cluster_arn
     ]
 
     actions = [
-      "kafka-cluster:*"
+      "kafka-cluster:Connect",
+      "kafka-cluster:AlterCluster",
+      "kafka-cluster:DescribeCluster"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    resources = [
+      "${join(":", slice(split(":", module.kafka.cluster_arn), 0, 4))}:topic/${var.kafka_test_topic}/*"
+    ]
+
+    actions = [
+      "kafka-cluster:*Topic*",
+      "kafka-cluster:WriteData",
+      "kafka-cluster:ReadData"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    resources = [
+      "${join(":", slice(split(":", module.kafka.cluster_arn), 0, 4))}:group/${module.kafka.cluster_name}/*"
+    ]
+
+    actions = [
+      "kafka-cluster:AlterGroup",
+      "kafka-cluster:DescribeGroup"
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "glue_full_access" {
+  statement {
+    sid    = "GlueFullAccess"
+    effect = "Allow"
+    resources = [
+      "*"
+    ]
+
+    actions = [
+      "glue:*",
+      "ec2:*"
     ]
   }
 }
@@ -131,7 +176,8 @@ module "glue_role" {
 
   policy_documents = [
     data.aws_iam_policy_document.s3_full_access.json,
-    data.aws_iam_policy_document.kafka_full_access.json
+    data.aws_iam_policy_document.kafka_full_access.json,
+    data.aws_iam_policy_document.glue_full_access.json
   ]
 }
 
