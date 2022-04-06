@@ -105,6 +105,7 @@ data "aws_iam_policy_document" "s3_full_access" {
 
 data "aws_iam_policy_document" "kafka_full_access" {
   statement {
+    sid    = "kafkaAccess1"
     effect = "Allow"
     resources = [
       module.kafka.cluster_arn
@@ -118,9 +119,10 @@ data "aws_iam_policy_document" "kafka_full_access" {
   }
 
   statement {
+    sid    = "kafkaAccess2"
     effect = "Allow"
     resources = [
-      "${join(":", slice(split(":", module.kafka.cluster_arn), 0, 4))}:topic/${var.kafka_test_topic}/*"
+      "*"
     ]
 
     actions = [
@@ -131,9 +133,10 @@ data "aws_iam_policy_document" "kafka_full_access" {
   }
 
   statement {
+    sid    = "kafkaAccess3"
     effect = "Allow"
     resources = [
-      "${join(":", slice(split(":", module.kafka.cluster_arn), 0, 4))}:group/${module.kafka.cluster_name}/*"
+      "*"
     ]
 
     actions = [
@@ -174,10 +177,8 @@ module "glue_role" {
     Service = ["glue.amazonaws.com"]
   }
 
-  policy_documents = [
-    data.aws_iam_policy_document.s3_full_access.json,
-    data.aws_iam_policy_document.kafka_full_access.json,
-    data.aws_iam_policy_document.glue_full_access.json
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AdministratorAccess"
   ]
 }
 
