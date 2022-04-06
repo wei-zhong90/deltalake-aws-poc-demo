@@ -57,5 +57,4 @@ variable "public_key" {
 
 variable "kafka_test_topic" {
   type    = string
-  default = "deltatest"
 }
