@@ -43,7 +43,7 @@ class OrderProvider(BaseProvider):
             'order_id': self.order_id(orderowner),
             'order_owner': orderowner,
             'order_value': self.order_value(orderowner),
-            'timestamp': int(ts)
+            'timestamp': int(ts*1000)
         }
         key = {'order_id': self.order_id(orderowner)}
         return message, key

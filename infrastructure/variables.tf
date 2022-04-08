@@ -58,3 +58,7 @@ variable "public_key" {
 variable "kafka_test_topic" {
   type    = string
 }
+
+variable "kafka_test_topic_2" {
+  type = string
+}

@@ -35,6 +35,43 @@ resource "aws_glue_job" "phase_1" {
   }
 }
 
+resource "aws_glue_job" "phase_1_topic_2" {
+  name        = "raw_process_python_topic_2"
+  description = "The initial ETL job that will create delta table from the raw data from topic 2"
+  role_arn    = module.glue_role.arn
+
+  worker_type       = "G.1X"
+  number_of_workers = 5
+  glue_version      = "3.0"
+
+  max_retries = 0
+
+  connections = [aws_glue_connection.kafka.name]
+
+  execution_property {
+    max_concurrent_runs = 20
+  }
+
+  command {
+    name            = "gluestreaming"
+    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/raw_phase_1_topic_2.py"
+    python_version  = 3
+  }
+
+  default_arguments = {
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--enable-continuous-log-filter"     = "true"
+    "--bootstrap_servers"                = module.kafka.bootstrap_brokers_iam
+    "--bucket_name"                      = aws_s3_bucket.data_bucket.bucket
+    "--topic"                            = var.kafka_test_topic_2
+    "--extra-jars"                       = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar,s3://${aws_s3_bucket.jar_bucket.bucket}/aws-msk-iam-auth-1.1.0-all.jar"
+    "--extra-py-files"                   = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar"
+    "--TempDir"                          = "s3://${aws_s3_bucket.jar_bucket.bucket}/tmp/"
+    "--enable-metrics"                   = ""
+    "--enable-glue-datacatalog"          = ""
+  }
+}
+
 resource "aws_glue_connection" "kafka" {
   connection_type = "KAFKA"
   connection_properties = {
@@ -219,6 +256,14 @@ resource "aws_s3_bucket_object" "phase1_script" {
   source = "../spark_scripts/raw_phase_1.py"
 
   etag = filemd5("../spark_scripts/raw_phase_1.py")
+}
+
+resource "aws_s3_bucket_object" "phase1_script_topic_2" {
+  bucket = aws_s3_bucket.jar_bucket.bucket
+  key    = "scripts/raw_phase_1_topic_2.py"
+  source = "../spark_scripts/raw_phase_1_topic_2.py"
+
+  etag = filemd5("../spark_scripts/raw_phase_1_topic_2.py")
 }
 
 resource "aws_s3_bucket_object" "phase2_script" {
