@@ -12,15 +12,33 @@ module "vpc" {
 module "application_subnets" {
   source = "cloudposse/dynamic-subnets/aws"
   # Cloud Posse recommends pinning every module to a specific version
-  version            = "0.39.8"
-  namespace          = var.namespace
-  stage              = var.stage
-  name               = "app"
-  enabled            = var.create_new_vpc
-  availability_zones = data.aws_availability_zones.available.names
-  vpc_id             = module.vpc.vpc_id
-  igw_id             = module.vpc.igw_id
-  cidr_block         = var.vpc_cidr
+  version                = "0.39.8"
+  namespace              = var.namespace
+  stage                  = var.stage
+  name                   = "app"
+  enabled                = var.create_new_vpc
+  availability_zones     = data.aws_availability_zones.available.names
+  vpc_id                 = module.vpc.vpc_id
+  igw_id                 = module.vpc.igw_id
+  cidr_block             = var.vpc_cidr
+  nat_gateway_enabled    = false
+}
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = module.vpc.vpc_id
+  service_name = "com.amazonaws.${var.region}.s3"
+}
+
+resource "aws_vpc_endpoint_route_table_association" "s3" {
+  count = length(module.application_subnets.private_route_table_ids)
+  route_table_id  = module.application_subnets.private_route_table_ids[count.index]
+  vpc_endpoint_id = aws_vpc_endpoint.s3.id
+}
+
+resource "aws_vpc_endpoint_route_table_association" "s3_pub" {
+  count = length(module.application_subnets.public_route_table_ids)
+  route_table_id  = module.application_subnets.public_route_table_ids[count.index]
+  vpc_endpoint_id = aws_vpc_endpoint.s3.id
 }
 
 resource "aws_default_security_group" "default" {

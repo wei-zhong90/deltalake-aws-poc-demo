@@ -7,5 +7,5 @@ output "ec2_public_ip" {
 }
 
 output "kafka_iam_connection_string" {
-  value = module.kafka.bootstrap_brokers_iam
+  value = aws_msk_cluster.kafka.bootstrap_brokers_sasl_iam
 }

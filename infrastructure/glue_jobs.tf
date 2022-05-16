@@ -1,7 +1,7 @@
 resource "aws_glue_job" "phase_1" {
   name        = "raw_process_python"
   description = "The initial ETL job that will create delta table from the raw data"
-  role_arn    = module.glue_role.arn
+  role_arn    = aws_iam_role.glue_role.arn
 
   worker_type       = "G.1X"
   number_of_workers = 5
@@ -24,9 +24,10 @@ resource "aws_glue_job" "phase_1" {
   default_arguments = {
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-continuous-log-filter"     = "true"
-    "--bootstrap_servers"                = module.kafka.bootstrap_brokers_iam
+    "--bootstrap_servers"                = aws_msk_cluster.kafka.bootstrap_brokers_sasl_iam
     "--bucket_name"                      = aws_s3_bucket.data_bucket.bucket
-    "--topic"                            = var.kafka_test_topic
+    "--topic1"                           = var.kafka_test_topic
+    "--topic2"                           = var.kafka_test_topic_2
     "--extra-jars"                       = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar,s3://${aws_s3_bucket.jar_bucket.bucket}/aws-msk-iam-auth-1.1.0-all.jar"
     "--extra-py-files"                   = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar"
     "--TempDir"                          = "s3://${aws_s3_bucket.jar_bucket.bucket}/tmp/"
@@ -35,47 +36,11 @@ resource "aws_glue_job" "phase_1" {
   }
 }
 
-resource "aws_glue_job" "phase_1_topic_2" {
-  name        = "raw_process_python_topic_2"
-  description = "The initial ETL job that will create delta table from the raw data from topic 2"
-  role_arn    = module.glue_role.arn
-
-  worker_type       = "G.1X"
-  number_of_workers = 5
-  glue_version      = "3.0"
-
-  max_retries = 0
-
-  connections = [aws_glue_connection.kafka.name]
-
-  execution_property {
-    max_concurrent_runs = 20
-  }
-
-  command {
-    name            = "gluestreaming"
-    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/raw_phase_1_topic_2.py"
-    python_version  = 3
-  }
-
-  default_arguments = {
-    "--enable-continuous-cloudwatch-log" = "true"
-    "--enable-continuous-log-filter"     = "true"
-    "--bootstrap_servers"                = module.kafka.bootstrap_brokers_iam
-    "--bucket_name"                      = aws_s3_bucket.data_bucket.bucket
-    "--topic"                            = var.kafka_test_topic_2
-    "--extra-jars"                       = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar,s3://${aws_s3_bucket.jar_bucket.bucket}/aws-msk-iam-auth-1.1.0-all.jar"
-    "--extra-py-files"                   = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar"
-    "--TempDir"                          = "s3://${aws_s3_bucket.jar_bucket.bucket}/tmp/"
-    "--enable-metrics"                   = ""
-    "--enable-glue-datacatalog"          = ""
-  }
-}
 
 resource "aws_glue_connection" "kafka" {
   connection_type = "KAFKA"
   connection_properties = {
-    KAFKA_BOOTSTRAP_SERVERS = module.kafka.bootstrap_brokers_iam
+    KAFKA_BOOTSTRAP_SERVERS = aws_msk_cluster.kafka.bootstrap_brokers_sasl_iam
     KAFKA_SSL_ENABLED       = true
   }
 
@@ -95,7 +60,7 @@ data "aws_subnet" "selected" {
 resource "aws_glue_job" "phase_2" {
   name         = "upsert_process_scala"
   description  = "The second phase etl that will do the upsert"
-  role_arn     = module.glue_role.arn
+  role_arn     = aws_iam_role.glue_role.arn
   glue_version = "3.0"
 
   worker_type       = "G.1X"
@@ -123,7 +88,7 @@ resource "aws_glue_job" "phase_2" {
   }
 }
 
-data "aws_iam_policy_document" "s3_full_access" {
+data "aws_iam_policy_document" "s3_access" {
   statement {
     sid    = "FullAccess"
     effect = "Allow"
@@ -140,12 +105,18 @@ data "aws_iam_policy_document" "s3_full_access" {
   }
 }
 
-data "aws_iam_policy_document" "kafka_full_access" {
+resource "aws_iam_role_policy" "s3_access" {
+  name   = "s3_access_policy"
+  role   = aws_iam_role.glue_role.id
+  policy = data.aws_iam_policy_document.s3_access.json
+}
+
+data "aws_iam_policy_document" "kafka_access" {
   statement {
     sid    = "kafkaAccess1"
     effect = "Allow"
     resources = [
-      module.kafka.cluster_arn
+      aws_msk_cluster.kafka.arn
     ]
 
     actions = [
@@ -183,7 +154,13 @@ data "aws_iam_policy_document" "kafka_full_access" {
   }
 }
 
-data "aws_iam_policy_document" "glue_full_access" {
+resource "aws_iam_role_policy" "kafka_access" {
+  name   = "kafka_access_policy"
+  role   = aws_iam_role.glue_role.id
+  policy = data.aws_iam_policy_document.kafka_access.json
+}
+
+data "aws_iam_policy_document" "glue_access" {
   statement {
     sid    = "GlueFullAccess"
     effect = "Allow"
@@ -198,26 +175,59 @@ data "aws_iam_policy_document" "glue_full_access" {
   }
 }
 
-module "glue_role" {
-  source = "cloudposse/iam-role/aws"
-  # Cloud Posse recommends pinning every module to a specific version
-  version = "0.16.0"
-
-  namespace = var.namespace
-  stage     = var.stage
-  name      = "glue_s3_admin"
-
-  policy_description = "Allow S3 FullAccess"
-  role_description   = "glue role with full access to s3 resource"
-
-  principals = {
-    Service = ["glue.amazonaws.com"]
-  }
-
-  managed_policy_arns = [
-    "arn:aws:iam::aws:policy/AdministratorAccess"
-  ]
+resource "aws_iam_role_policy" "glue_access" {
+  name   = "glue_access_policy"
+  role   = aws_iam_role.glue_role.id
+  policy = data.aws_iam_policy_document.glue_access.json
 }
+
+resource "aws_iam_role" "glue_role" {
+  name = "glue_role"
+
+  # Terraform's "jsonencode" function converts a
+  # Terraform expression result to valid JSON syntax.
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "glue.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  tags = {
+    namespace = var.namespace
+  }
+}
+
+
+
+
+# module "glue_role" {
+#   source = "cloudposse/iam-role/aws"
+#   # Cloud Posse recommends pinning every module to a specific version
+#   version = "0.16.0"
+
+#   namespace = var.namespace
+#   stage     = var.stage
+#   name      = "glue_s3_admin"
+
+#   policy_description = "Allow S3 FullAccess"
+#   role_description   = "glue role with full access to s3 resource"
+
+#   principals = {
+#     Service = ["glue.amazonaws.com"]
+#   }
+
+#   managed_policy_arns = [
+#     "arn:aws:iam::aws:policy/AdministratorAccess"
+#   ]
+# }
 
 resource "aws_s3_bucket" "jar_bucket" {
   bucket_prefix = "central-jar-bucket-"
@@ -256,14 +266,6 @@ resource "aws_s3_bucket_object" "phase1_script" {
   source = "../spark_scripts/raw_phase_1.py"
 
   etag = filemd5("../spark_scripts/raw_phase_1.py")
-}
-
-resource "aws_s3_bucket_object" "phase1_script_topic_2" {
-  bucket = aws_s3_bucket.jar_bucket.bucket
-  key    = "scripts/raw_phase_1_topic_2.py"
-  source = "../spark_scripts/raw_phase_1_topic_2.py"
-
-  etag = filemd5("../spark_scripts/raw_phase_1_topic_2.py")
 }
 
 resource "aws_s3_bucket_object" "phase2_script" {
