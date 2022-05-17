@@ -74,12 +74,14 @@ class JobBase(object):
     self.logger.info("Starting Glue Threading job ")
     import concurrent.futures
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-    executor.submit(self.workflow, topic1, schema1, insertToDelta1, checkpoint_bucket1)
-    executor.submit(self.workflow, topic2, schema2, insertToDelta2, checkpoint_bucket2)
+    executor.submit(self.workflow, topic1, schema1, insertToDelta1, checkpoint_bucket1, 1)
+    executor.submit(self.workflow, topic2, schema2, insertToDelta2, checkpoint_bucket2, 2)
     self.logger.info("Completed Threading job")
     
     
-  def workflow(self, topic, schema, insertToDelta, checkpoint_bucket):
+  def workflow(self, topic, schema, insertToDelta, checkpoint_bucket, poolname):
+    
+    self.sc.setLocalProperty("spark.scheduler.pool", str(poolname))
     # Read Source
     df = self.spark \
       .readStream \
@@ -106,25 +108,5 @@ def main():
 
 if __name__ == '__main__':
   main()
-  
 
-# df_t2 = spark \
-#   .readStream \
-#   .format("kafka") \
-#   .options(**get_options(bootstrap_servers, topic2)) \
-#   .load().select(col("value").cast("STRING"))
-
-# df2_t2 = df_t2.select(from_json("value", schema2).alias("data")).select("data.*")
-
-
-# # Write data as a DELTA TABLE
-# df3_t2 = df2_t2.writeStream \
-#   .foreachBatch(insertToDelta2) \
-#   .option("checkpointLocation", f"s3://{data_bucket}/membership_checkpoint/") \
-#   .trigger(processingTime="60 seconds") \
-#   .start()
-
-# df3_t2.awaitTermination()
-
-# job.commit()
 
