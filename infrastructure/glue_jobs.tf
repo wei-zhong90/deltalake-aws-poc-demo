@@ -33,6 +33,7 @@ resource "aws_glue_job" "phase_1" {
     "--TempDir"                          = "s3://${aws_s3_bucket.jar_bucket.bucket}/tmp/"
     "--enable-metrics"                   = ""
     "--enable-glue-datacatalog"          = ""
+    "--extra-files"                      = "s3://${aws_s3_bucket.jar_bucket.bucket}/configuration/fairscheduler.xml"
   }
 }
 
@@ -68,7 +69,7 @@ resource "aws_glue_job" "phase_2" {
 
   command {
     name            = "gluestreaming"
-    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/upsert_phase_2.scala"
+    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/fairscheduler.xml"
   }
 
   execution_property {
@@ -270,10 +271,10 @@ resource "aws_s3_bucket_object" "phase1_script" {
 
 resource "aws_s3_bucket_object" "phase2_script" {
   bucket = aws_s3_bucket.jar_bucket.bucket
-  key    = "scripts/upsert_phase_2.scala"
-  source = "../spark_scripts/upsert_phase_2.scala"
+  key    = "scripts/fairscheduler.xml"
+  source = "../spark_scripts/fairscheduler.xml"
 
-  etag = filemd5("../spark_scripts/upsert_phase_2.scala")
+  etag = filemd5("../spark_scripts/fairscheduler.xml")
 }
 
 resource "aws_s3_bucket" "data_bucket" {
@@ -289,4 +290,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "default-encryptio
       sse_algorithm = "aws:kms"
     }
   }
+}
+
+resource "aws_s3_bucket_object" "configuration_xml" {
+  bucket = aws_s3_bucket.jar_bucket.bucket
+  key    = "configuration/fairscheduler.xml"
+  source = "../spark_scripts/fairscheduler.xml"
+
+  etag = filemd5("../spark_scripts/fairscheduler.xml")
 }
