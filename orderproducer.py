@@ -30,8 +30,8 @@ class OrderProvider(BaseProvider):
         return int(nextval*1000)
 
     def reshuffle_probs(self, orderowner):
-        indexStock = orderOwner.index(orderowner)
-        UpProb[indexStock]=random.random()
+        indexOrder = orderOwner.index(orderowner)
+        UpProb[indexOrder]=random.random()
         
     
     def produce_msg(self):
