@@ -9,3 +9,7 @@ output "ec2_public_ip" {
 output "kafka_iam_connection_string" {
   value = aws_msk_cluster.kafka.bootstrap_brokers_sasl_iam
 }
+
+output "kafka_tls_connection_string" {
+  value = aws_msk_cluster.kafka.bootstrap_brokers_tls
+}
