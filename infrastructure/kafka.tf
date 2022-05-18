@@ -49,6 +49,12 @@ resource "aws_msk_cluster" "kafka" {
     }
   }
 
+  timeouts {
+    create = "1h"
+    update = "1h"
+    delete = "30m"
+  }
+
   # lifecycle {
   #   ignore_changes = [
   #     # Ignore changes to tags, e.g. because a management agent
