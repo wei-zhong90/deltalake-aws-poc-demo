@@ -13,3 +13,7 @@ output "kafka_iam_connection_string" {
 output "kafka_tls_connection_string" {
   value = aws_msk_cluster.kafka.bootstrap_brokers_tls
 }
+
+output "data_bucket_name" {
+  value = aws_s3_bucket.data_bucket.bucket
+}

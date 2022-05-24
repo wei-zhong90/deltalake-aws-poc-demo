@@ -47,6 +47,7 @@ object GlueApp {
       .option("checkpointLocation", CheckpointDir)
       .trigger(Trigger.ProcessingTime("60 seconds"))
       .outputMode("append")
+      .partitionBy("year", "month", "day", "hour")
       .start(s"s3://${args("bucket_name")}/curated/")
 
     query.awaitTermination()   

@@ -1,5 +1,5 @@
 resource "aws_glue_job" "phase_1" {
-  name        = "raw_process_python"
+  name        = "raw_process"
   description = "The initial ETL job that will create delta table from the raw data"
   role_arn    = aws_iam_role.glue_role.arn
 
@@ -59,8 +59,8 @@ data "aws_subnet" "selected" {
 }
 
 resource "aws_glue_job" "phase_2" {
-  name         = "upsert_process_scala"
-  description  = "The second phase etl that will do the upsert"
+  name         = "join_process"
+  description  = "The second phase etl that will do the join"
   role_arn     = aws_iam_role.glue_role.arn
   glue_version = "3.0"
 
@@ -69,7 +69,7 @@ resource "aws_glue_job" "phase_2" {
 
   command {
     name            = "gluestreaming"
-    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/upsert_phase_2.scala"
+    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/join_phase_2.scala"
   }
 
   execution_property {
@@ -86,6 +86,39 @@ resource "aws_glue_job" "phase_2" {
     "--enable-metrics"                   = ""
     "--enable-glue-datacatalog"          = ""
     "--job-bookmark-option"              = "job-bookmark-enable"
+    "--class"                            = "GlueApp"
+  }
+}
+
+resource "aws_glue_job" "phase_3" {
+  name         = "upsert_process"
+  description  = "The third phase etl that will do the upsert"
+  role_arn     = aws_iam_role.glue_role.arn
+  glue_version = "3.0"
+
+  worker_type       = "G.1X"
+  number_of_workers = 5
+
+  command {
+    name            = "gluestreaming"
+    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/upsert_phase_3.scala"
+  }
+
+  execution_property {
+    max_concurrent_runs = 20
+  }
+
+  default_arguments = {
+    "--job-language"                     = "scala"
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--enable-continuous-log-filter"     = "true"
+    "--bucket_name"                      = aws_s3_bucket.data_bucket.bucket
+    "--extra-jars"                       = "s3://${aws_s3_bucket.jar_bucket.bucket}/delta-core_2.12-1.0.0.jar"
+    "--TempDir"                          = "s3://${aws_s3_bucket.jar_bucket.bucket}/tmp/"
+    "--enable-metrics"                   = ""
+    "--enable-glue-datacatalog"          = ""
+    "--job-bookmark-option"              = "job-bookmark-enable"
+    "--class"                            = "GlueApp"
   }
 }
 
@@ -245,7 +278,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "default-encryptio
   }
 }
 
-resource "aws_s3_bucket_object" "delta" {
+resource "aws_s3_object" "delta" {
   bucket = aws_s3_bucket.jar_bucket.bucket
   key    = "delta-core_2.12-1.0.0.jar"
   source = "../delta_core/delta-core_2.12-1.0.0.jar"
@@ -253,7 +286,7 @@ resource "aws_s3_bucket_object" "delta" {
   etag = filemd5("../delta_core/delta-core_2.12-1.0.0.jar")
 }
 
-resource "aws_s3_bucket_object" "msk_iam" {
+resource "aws_s3_object" "msk_iam" {
   bucket = aws_s3_bucket.jar_bucket.bucket
   key    = "aws-msk-iam-auth-1.1.0-all.jar"
   source = "../delta_core/aws-msk-iam-auth-1.1.0-all.jar"
@@ -261,7 +294,7 @@ resource "aws_s3_bucket_object" "msk_iam" {
   etag = filemd5("../delta_core/aws-msk-iam-auth-1.1.0-all.jar")
 }
 
-resource "aws_s3_bucket_object" "phase1_script" {
+resource "aws_s3_object" "phase1_script" {
   bucket = aws_s3_bucket.jar_bucket.bucket
   key    = "scripts/raw_phase_1.py"
   source = "../spark_scripts/raw_phase_1.py"
@@ -269,12 +302,20 @@ resource "aws_s3_bucket_object" "phase1_script" {
   etag = filemd5("../spark_scripts/raw_phase_1.py")
 }
 
-resource "aws_s3_bucket_object" "phase2_script" {
+resource "aws_s3_object" "phase2_script" {
   bucket = aws_s3_bucket.jar_bucket.bucket
-  key    = "scripts/upsert_phase_2.scala"
-  source = "../spark_scripts/upsert_phase_2.scala"
+  key    = "scripts/join_phase_2.scala"
+  source = "../spark_scripts/join_phase_2.scala"
 
-  etag = filemd5("../spark_scripts/upsert_phase_2.scala")
+  etag = filemd5("../spark_scripts/join_phase_2.scala")
+}
+
+resource "aws_s3_object" "phase3_script" {
+  bucket = aws_s3_bucket.jar_bucket.bucket
+  key    = "scripts/upsert_phase_3.scala"
+  source = "../spark_scripts/upsert_phase_3.scala"
+
+  etag = filemd5("../spark_scripts/upsert_phase_3.scala")
 }
 
 resource "aws_s3_bucket" "data_bucket" {
@@ -292,7 +333,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "default-encryptio
   }
 }
 
-resource "aws_s3_bucket_object" "configuration_xml" {
+resource "aws_s3_object" "configuration_xml" {
   bucket = aws_s3_bucket.jar_bucket.bucket
   key    = "configuration/fairscheduler.xml"
   source = "../spark_scripts/fairscheduler.xml"

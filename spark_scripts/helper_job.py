@@ -5,7 +5,7 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from delta import *
-from pyspark.sql.types import StructType,StructField, StringType, IntegerType
+from pyspark.sql.types import StructType,StructField, StringType, IntegerType, TimestampType
 
 ## @params: [JOB_NAME]
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
@@ -33,7 +33,7 @@ job.init(args['JOB_NAME'], args)
 #   StructField("order_id", IntegerType(), True), \
 #   StructField("order_owner", StringType(), True), \
 #   StructField("order_value", IntegerType(), True), \
-#   StructField("timestamp", StringType(), True), \
+#   StructField("timestamp", TimestampType(), True), \
 #   StructField("membership", StringType(), True), \
 #   StructField("year", StringType(), True), \
 #   StructField("month", StringType(), True), \
