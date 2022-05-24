@@ -69,7 +69,7 @@ resource "aws_glue_job" "phase_2" {
 
   command {
     name            = "gluestreaming"
-    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/fairscheduler.xml"
+    script_location = "s3://${aws_s3_bucket.jar_bucket.bucket}/scripts/upsert_phase_2.scala"
   }
 
   execution_property {
@@ -271,10 +271,10 @@ resource "aws_s3_bucket_object" "phase1_script" {
 
 resource "aws_s3_bucket_object" "phase2_script" {
   bucket = aws_s3_bucket.jar_bucket.bucket
-  key    = "scripts/fairscheduler.xml"
-  source = "../spark_scripts/fairscheduler.xml"
+  key    = "scripts/upsert_phase_2.scala"
+  source = "../spark_scripts/upsert_phase_2.scala"
 
-  etag = filemd5("../spark_scripts/fairscheduler.xml")
+  etag = filemd5("../spark_scripts/upsert_phase_2.scala")
 }
 
 resource "aws_s3_bucket" "data_bucket" {
