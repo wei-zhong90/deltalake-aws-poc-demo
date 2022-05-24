@@ -24,33 +24,40 @@ object GlueApp {
     // @params: [JOB_NAME]
     val args = GlueArgParser.getResolvedOptions(sysArgs, Seq("JOB_NAME", "bucket_name").toArray)
     Job.init(args("JOB_NAME"), glueContext, args.asJava)
+    
+    //read base
+    val BasePath = s"s3://${args("bucket_name")}/processed"
+    val Basetable = DeltaTable.forPath(sparkSession, BasePath)
+    val CheckpointDir = s"s3://${args("bucket_name")}/checkpoint3"
+    //read from upstream joined stream
+    val raw = sparkSession.readStream.format("delta").load(s"s3://${args("bucket_name")}/curated/")
+    
+    def upsertIntoDeltaTable(updatedDf: DataFrame, batchId: Long): Unit = {
+      
+        val w = Window.partitionBy($"order_id").orderBy($"timestamp".desc)
+        val Resultdf = updatedDf.withColumn("rownum", row_number.over(w)).where($"rownum" === 1).drop("rownum")
+        
+        // Merge from base with source
+        Basetable.alias("b").merge(
+            Resultdf.alias("s"), 
+            "s.order_id = b.order_id")
+            .whenMatched.updateAll()
+            .whenNotMatched.insertAll()
+            .execute()
+    }
 
-    val CheckpointDir = s"s3://${args("bucket_name")}/checkpoint2"
 
-    val raworder = sparkSession.readStream.format("delta").load(s"s3://${args("bucket_name")}/raw/order/").withWatermark("timestamp", "2 hours")
-    val rawmember= sparkSession.readStream.format("delta").load(s"s3://${args("bucket_name")}/raw/member/").withWatermark("timestamp", "3 hours") 
-  
-
-   val joinedorder = raworder.alias("order").join(
-         rawmember.alias("member"),
-         expr("""
-           order.order_owner = member.order_owner AND
-           order.timestamp >= member.timestamp AND
-           order.timestamp <= member.timestamp + interval 1 hour
-         """)
-   ).select($"order.order_id", $"order.order_owner", $"order.order_value", $"order.timestamp", $"member.membership", $"order.year", $"order.month", $"order.day", $"order.hour")
-
-
-    val query = joinedorder
+    val query = raw
       .writeStream
       .format("delta")
+      .foreachBatch(upsertIntoDeltaTable _)
       .option("checkpointLocation", CheckpointDir)
-      .trigger(Trigger.ProcessingTime("60 seconds"))
-      .outputMode("append")
-      .start(s"s3://${args("bucket_name")}/curated/")
+      .trigger(Trigger.Once())
+      .outputMode("update")
+      .start(s"s3://${args("bucket_name")}/processed/")
 
     query.awaitTermination()   
- 
+    
     
     Job.commit()
 

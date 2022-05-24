@@ -40,11 +40,11 @@ def insertToDelta1(microBatch, batchId):
   hour = date.strftime("%H")
   if microBatch.count() > 0:
     df = microBatch.withColumn("year", lit(year)).withColumn("month", lit(month)).withColumn("day", lit(day)).withColumn("hour", lit(hour))
-    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save(f"s3://{data_bucket}/raw/")
+    df.write.partitionBy("year", "month", "day", "hour").mode("append").format("delta").save(f"s3://{data_bucket}/raw/order/")
 
 def insertToDelta2(microBatch, batchId):
   if microBatch.count() > 0:
-    microBatch.write.partitionBy("order_owner").mode("append").format("delta").save(f"s3://{data_bucket}/raw/membership/")
+    microBatch.write.partitionBy("order_owner").mode("append").format("delta").save(f"s3://{data_bucket}/raw/member/")
 
 class JobBase(object):
   fair_scheduler_config_file= "fairscheduler.xml"
