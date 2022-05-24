@@ -34,6 +34,7 @@ job.init(args['JOB_NAME'], args)
 #   StructField("order_owner", StringType(), True), \
 #   StructField("order_value", IntegerType(), True), \
 #   StructField("timestamp", StringType(), True), \
+#   StructField("membership", StringType(), True), \
 #   StructField("year", StringType(), True), \
 #   StructField("month", StringType(), True), \
 #   StructField("day", StringType(), True), \
