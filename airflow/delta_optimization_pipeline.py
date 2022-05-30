@@ -33,7 +33,7 @@ region_name = "ap-northeast-1"
 email_recipient = "me@gmail.com"
 ##'retry_delay': timedelta(minutes=5)
 script_parameter = ["s3://aws-airflow-demo-bucket/GlueScript/01cleaned.py", "s3://aws-airflow-demo-bucket/GlueScript/02joineddimcustomer.py", "s3://aws-airflow-demo-bucket/GlueScript/03goldview.py"]
-job_parameter = ["job-stage2", "job-create-processed-base-table"]
+job_parameter = ["job-stage3", "job-create-processed-base-table"]
 
 default_args = {
     'owner': 'me',
@@ -92,8 +92,8 @@ end_flow = DummyOperator(
 ##########################################################
 # GLUE 3.0 PYTHON OPERATORS
 ##########################################################
-step1_streaming_trigger_hourly = PythonOperator(
-    task_id='step1_streaming_trigger_hourly',
+step_streaming_trigger_hourly = PythonOperator(
+    task_id='step_streaming_trigger_hourly',
     python_callable=glue2function,
     op_kwargs={'jobname': job_parameter[0], 'scriptlocation': script_parameter[0], 'numberofworker': NumberOfWorkers[2]},
     dag=dag,
@@ -106,15 +106,6 @@ step2_generate_symlink = PythonOperator(
     op_kwargs={'jobname': job_parameter[1], 'scriptlocation': script_parameter[1], 'numberofworker': NumberOfWorkers[3]},
     dag=dag,
     )
-
-# glue_step3_goldview_etl = PythonOperator(
-#     #task_id='glue_job_step3',
-#     task_id='glue_step3_goldview_etl',
-#     python_callable=glue2function,
-#     op_kwargs={'jobname': job_parameter[2], 'scriptlocation': script_parameter[2], 'numberofworker': NumberOfWorkers[4]},
-#     dag=dag,
-#     )
-
 
 ##########################################################
 #ATHENA DYNAMIC OPERATORS
@@ -144,16 +135,11 @@ for index, x in enumerate(ATHENA_SQL, start=0):
     Tasks.append(created_task)
     
 
-#########################################################
-# REDSHIFT TASK FUNCTION
-#########################################################
-# Call redshift operator
-
 
 #########################################################
 # WORKFLOW DEFINITION
 #########################################################
 
-start_flow >> step1_streaming_trigger_hourly >> step2_generate_symlink >> Tasks[0] >> end_flow
+start_flow >> step_streaming_trigger_hourly >> step2_generate_symlink >> Tasks[0] >> end_flow
 
   
