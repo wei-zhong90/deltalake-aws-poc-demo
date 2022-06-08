@@ -68,6 +68,10 @@ python3 -m pip install -r requirements.txt
 python3 generator.py
 ```
 
+## Suppliment
+
+Not every components are deployed by the terraform codes. Airflow codes need to be manually deployed to MWAA by console or AWS CLI. Some data maintainence glue jobs are also not included in the terraform code. We simply put the Spark scripts of those glue jobs in this directory to help understand. And more features are to be added in the future.
+
 ## Disclaimer
 
 The code in this repo is for demo purpose. There are still a lot of improvement can be made, especially regarding to the Terraform codes. If you find any bugs or inconvenient errors, please feel free to report it to me <weiaws@amazon.com> and my colleage, Nick <huxiaod@amazon.com>.
